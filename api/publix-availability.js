@@ -19,12 +19,12 @@ const PRODUCT_URLS={
 function parse(html){
   const t=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ');
   if(/out of stock|item isn't available|item isn.t available|not available in/i.test(t))return {status:'OOS',label:'OUT OF STOCK'};
-  if(/available in|many in stock|in stock|add to cart|add to order/i.test(t))return {status:'IN_STOCK',label:'IN STOCK'};
+  if(/available in|many in stock|in stock|add to cart|add to order|add for delivery|add for pickup/i.test(t))return {status:'IN_STOCK',label:'IN STOCK'};
   return {status:'UNKNOWN',label:'CHECK FAILED'};
 }
 module.exports=async(req,res)=>{
   res.setHeader('Cache-Control','s-maxage=300, stale-while-revalidate=600');
-  const ids=String(req.query.products||'').split(',').filter(Boolean).slice(0,12);
+  const ids=String(req.query.products||'').split(',').filter(Boolean).slice(0,50);
   const results={};
   await Promise.all(ids.map(async id=>{
     const base=PRODUCT_URLS[id];
