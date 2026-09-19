@@ -6,16 +6,29 @@ const read=()=>{try{return JSON.parse(localStorage.getItem(actionsKey)||'{}')}ca
 const write=v=>localStorage.setItem(actionsKey,JSON.stringify(v));
 const inventory=()=>null;
 const availability=()=>({status:'NOT_CHECKED',label:'NOT CHECKED'});
-const storeLabel=s=>s.asm?('ASM '+s.asm):s.region;
+const AREA_MAP=[
+  {min:100,max:199,name:'Northeast',code:'100s'},
+  {min:200,max:299,name:'Mid-Atlantic',code:'200s'},
+  {min:400,max:499,name:'Southeast',code:'400s'},
+  {min:500,max:599,name:'South',code:'500s'},
+  {min:600,max:699,name:'Great Plains',code:'600s'},
+  {min:700,max:799,name:'Great Midwest',code:'700s'},
+  {min:800,max:899,name:'Gateway',code:'800s'},
+  {min:900,max:999,name:'Texas',code:'900s'},
+  {min:1200,max:1299,name:'Southwest',code:'1200s'},
+  {min:1300,max:1399,name:'Northwest',code:'1300s'}
+];
+const areaFor=s=>{const n=Number(s.asm);const a=AREA_MAP.find(x=>n>=x.min&&n<=x.max);return a?{...a,label:a.name+' ('+a.code+')'}:{name:'Unassigned',code:'',label:'Unassigned'}};
+const storeLabel=s=>s.asm?('Zone '+s.asm):s.region;
 function init(){
-  fillFilters();bindNav();fillStores();renderRegional();
+  data.stores.forEach(s=>{const a=areaFor(s);s.area=a.name;s.areaLabel=a.label;s.division=a.name;s.region='Zone '+s.asm});fillFilters();bindNav();fillStores();renderRegional();
   ['divisionFilter','regionFilter','deliveryFilter'].forEach(id=>$('#'+id).onchange=()=>{fillStores();});
   $('#storeFilter').onchange=()=>load($('#storeFilter').value);
   $('#exportBtn').onclick=exportStore;$('#refreshBtn').onclick=()=>selected&&load(selected.id);
 }
 function fillFilters(){
-  [...new Set(data.stores.map(s=>s.division))].sort().forEach(x=>$('#divisionFilter').insertAdjacentHTML('beforeend',`<option>${esc(x)}</option>`));
-  [...new Set(data.stores.map(s=>s.region))].sort().forEach(x=>$('#regionFilter').insertAdjacentHTML('beforeend',`<option>${esc(x)}</option>`));
+  AREA_MAP.filter(a=>data.stores.some(s=>s.area===a.name)).forEach(a=>$('#divisionFilter').insertAdjacentHTML('beforeend',`<option value="${esc(a.name)}">${esc(a.label)}</option>`));
+  [...new Set(data.stores.map(s=>Number(s.asm)))].sort((a,b)=>a-b).forEach(x=>$('#regionFilter').insertAdjacentHTML('beforeend',`<option value="Zone ${x}">Zone ${x}</option>`));
   ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(x=>$('#deliveryFilter').insertAdjacentHTML('beforeend',`<option>${x}</option>`));
 }
 function filteredStores(){
@@ -36,7 +49,7 @@ function bindNav(){
 function load(id){
   selected=data.stores.find(s=>s.id===id);if(!selected)return;
   $('#storeName').textContent=`${selected.name} — ${selected.city}`;$('#storeAddress').textContent=selected.address;$('#storeId').textContent=`Store ID ${selected.id}`;
-  $('#divisionValue').textContent=selected.state||selected.division;$('#regionValue').textContent=storeLabel(selected);$('#deliveryValue').textContent=selected.deliveryDays.join(', ');
+  $('#divisionValue').textContent=selected.areaLabel||areaFor(selected).label;$('#regionValue').textContent=storeLabel(selected);$('#deliveryValue').textContent=selected.deliveryDays.join(', ');
   renderItems();
 }
 function renderItems(){
@@ -53,7 +66,7 @@ function renderItems(){
 }
 function renderKpiCases(){if(!selected)return;const acts=read(),c=Object.entries(acts).filter(([k])=>k.startsWith(selected.id+'|')).reduce((s,[,v])=>s+(Number(v.qty)||0),0);$('#casesValue').textContent=`${c} open`;$('#caseKpi').textContent=c}
 function renderRegional(){
-  const regions=[...new Set(data.stores.map(s=>s.region))];$('#regionalGrid').innerHTML=regions.map(r=>{const stores=data.stores.filter(s=>s.region===r);return `<article class="region-card"><h3>${esc(r)}</h3><div class="metric">${stores.length}</div><small>stores • availability feed pending</small></article>`}).join('');
+  const areas=AREA_MAP.filter(a=>data.stores.some(s=>s.area===a.name));$('#regionalGrid').innerHTML=areas.map(a=>{const stores=data.stores.filter(s=>s.area===a.name),zones=[...new Set(stores.map(s=>s.asm))].sort((x,y)=>Number(x)-Number(y));return `<article class="region-card"><h3>${esc(a.label)}</h3><div class="metric">${stores.length}</div><small>${zones.length} zones • ${esc(zones.map(z=>'Zone '+z).join(', '))}</small></article>`}).join('');
 }
 function exportStore(){if(!selected)return;const acts=read(),rows=[['Brand','Item','Category','Product ID','Status','Qty Ordered','Case Price','Added $'],...data.products.map(x=>{const qoh=null,a=acts[`${selected.id}|${x.productId}`]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return[x.brand,x.name,x.category,x.productId,'NOT_CHECKED',q,p,(q*p).toFixed(2)]})];const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Publix-${selected.id}-Store-Action.csv`;a.click();URL.revokeObjectURL(a.href)}
 document.addEventListener('DOMContentLoaded',init);
