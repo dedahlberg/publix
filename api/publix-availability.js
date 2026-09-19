@@ -8,8 +8,8 @@ const PRODUCT_URLS={
 };
 function parse(html){
   const t=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ');
-  if(/out of stock/i.test(t))return {status:'OOS',label:'OUT OF STOCK'};
-  if(/many in stock|in stock|add to cart|add to order/i.test(t))return {status:'IN_STOCK',label:'IN STOCK'};
+  if(/out of stock|item isn't available|item isn.t available|not available in/i.test(t))return {status:'OOS',label:'OUT OF STOCK'};
+  if(/available in|many in stock|in stock|add to cart|add to order/i.test(t))return {status:'IN_STOCK',label:'IN STOCK'};
   return {status:'UNKNOWN',label:'CHECK FAILED'};
 }
 module.exports=async(req,res)=>{
@@ -17,8 +17,10 @@ module.exports=async(req,res)=>{
   const ids=String(req.query.products||'').split(',').filter(Boolean).slice(0,12);
   const results={};
   await Promise.all(ids.map(async id=>{
-    const url=PRODUCT_URLS[id];
-    if(!url){results[id]={status:'NOT_MAPPED',label:'NOT MAPPED'};return}
+    const base=PRODUCT_URLS[id];
+    const postal=String(req.query.postal||'').replace(/\D/g,'').slice(0,5);
+    const url=base&&postal?base.replace('/store/publix/products/','/landing?postal_code='+postal+'&product_id=').replace(/-([a-z0-9-]+)$/i,'')+'&retailer_id=57':base;
+    if(!base){results[id]={status:'NOT_MAPPED',label:'NOT MAPPED'};return}
     try{
       const r=await fetch(url,{headers:{'user-agent':UA,'accept':'text/html,application/xhtml+xml'}});
       if(!r.ok){results[id]={status:'UNKNOWN',label:'CHECK FAILED',http:r.status};return}
