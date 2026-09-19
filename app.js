@@ -10,7 +10,7 @@ const availability=(storeId,pid)=>availabilityCache[storeId]?.[pid]||{status:'NO
 async function checkAvailability(store){
   const ids=data.products.map(p=>p.productId).join(',');
   try{
-    const r=await fetch('/api/publix-availability?store='+encodeURIComponent(store.id)+'&products='+encodeURIComponent(ids),{cache:'no-store'});
+    const r=await fetch('/api/publix-availability?store='+encodeURIComponent(store.id)+'&postal='+encodeURIComponent(store.zip||'')+'&products='+encodeURIComponent(ids),{cache:'no-store'});
     if(!r.ok)throw new Error('availability');
     const j=await r.json();availabilityCache[store.id]=j.results||{};
   }catch(e){availabilityCache[store.id]=Object.fromEntries(data.products.map(p=>[p.productId,{status:'UNKNOWN',label:'CHECK FAILED'}]));}
