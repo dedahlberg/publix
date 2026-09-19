@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#0a6b3b" />
+  <title>Publix In-Stock Command Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">P</div>
+      <div>
+        <strong>Publix</strong>
+        <span>In-Stock Command Center</span>
+      </div>
+    </div>
+    <nav>
+      <button class="active" data-view="store">⌂ Store Dashboard</button>
+      <button data-view="unavailable">◉ Unavailable Watch</button>
+      <button data-view="cases">◇ Case Additions</button>
+      <button data-view="regional">▥ Regional Dashboard</button>
+    </nav>
+    <div class="rail-card">
+      <strong>Execution first.</strong>
+      <span>Find gaps. Add cases. Protect the shelf.</span>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">PUBLIX STORE-LEVEL INVENTORY ACTION</div>
+        <h1>Publix In-Stock Command Center</h1>
+        <p>Store execution, OOS visibility, recommended case additions, and regional performance in one view.</p>
+      </div>
+      <div class="header-actions">
+        <button id="exportBtn">Export Store</button>
+        <button class="primary" id="refreshBtn">Refresh Selected Store</button>
+      </div>
+    </header>
+
+    <section class="filters">
+      <select id="divisionFilter"><option value="all">All divisions</option></select>
+      <select id="regionFilter"><option value="all">All regions</option></select>
+      <select id="deliveryFilter"><option value="all">All delivery days</option></select>
+      <select id="storeFilter"><option value="">Select Publix store</option></select>
+    </section>
+
+    <section class="storebar">
+      <div><strong id="storeName">Select a Publix store</strong><span id="storeAddress">Choose a store above</span></div>
+      <div><strong id="storeId">Store ID —</strong><span id="trackedCount">— tracked products</span></div>
+      <div><strong>Division</strong><span id="divisionValue">—</span></div>
+      <div><strong>Region</strong><span id="regionValue">—</span></div>
+      <div><strong>Delivery</strong><span id="deliveryValue">—</span></div>
+      <div><strong>Cases Added</strong><span id="casesValue">0 open</span></div>
+    </section>
+
+    <section class="kpis">
+      <article class="bad"><strong id="oosKpi">—</strong><span>Out of Stock</span></article>
+      <article class="good"><strong id="inKpi">—</strong><span>In Stock</span></article>
+      <article><strong id="rateKpi">—</strong><span>In-Stock Rate</span><small id="rateDetail">confirmed availability only</small></article>
+      <article><strong id="caseKpi">0</strong><span>Recommended Cases</span><small>open action quantity</small></article>
+    </section>
+
+    <section id="storeView" class="view active">
+      <div class="section-head">
+        <div><div class="eyebrow">STORE ACTION</div><h2>Out-of-stock and replenishment actions</h2></div>
+        <div class="legend"><span class="dot oos"></span> OOS <span class="dot instock"></span> In stock</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Brand</th><th>Item</th><th>Category</th><th>Product ID</th><th>Qty</th><th>Status</th><th>Qty Ordered</th><th>Case Price</th><th>Added $</th></tr></thead>
+          <tbody id="itemRows"><tr><td colspan="10" class="empty">Select a store to begin.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="regionalView" class="view">
+      <div class="section-head"><div><div class="eyebrow">REGIONAL PERFORMANCE</div><h2>Publix regional dashboard</h2></div></div>
+      <div class="regional-grid" id="regionalGrid"></div>
+    </section>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
