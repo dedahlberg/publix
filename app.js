@@ -5,7 +5,16 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const read=()=>{try{return JSON.parse(localStorage.getItem(actionsKey)||'{}')}catch{return{}}};
 const write=v=>localStorage.setItem(actionsKey,JSON.stringify(v));
 const inventory=()=>null;
-const availability=()=>({status:'NOT_CHECKED',label:'NOT CHECKED'});
+const availabilityCache={};
+const availability=(storeId,pid)=>availabilityCache[storeId]?.[pid]||{status:'NOT_CHECKED',label:'NOT CHECKED'};
+async function checkAvailability(store){
+  const ids=data.products.map(p=>p.productId).join(',');
+  try{
+    const r=await fetch('/api/publix-availability?store='+encodeURIComponent(store.id)+'&products='+encodeURIComponent(ids),{cache:'no-store'});
+    if(!r.ok)throw new Error('availability');
+    const j=await r.json();availabilityCache[store.id]=j.results||{};
+  }catch(e){availabilityCache[store.id]=Object.fromEntries(data.products.map(p=>[p.productId,{status:'UNKNOWN',label:'CHECK FAILED'}]));}
+}
 const AREA_MAP=[
   {min:100,max:199,name:'Northeast',code:'100s'},
   {min:200,max:299,name:'Mid-Atlantic',code:'200s'},
@@ -54,16 +63,16 @@ function bindNav(){
     renderItems();
   });
 }
-function load(id){
+async function load(id){
   selected=data.stores.find(s=>s.id===id);if(!selected)return;
   $('#storeName').textContent=`${selected.name} — ${selected.city}`;$('#storeAddress').textContent=selected.address;$('#storeId').textContent=`Store ID ${selected.id}`;
   $('#divisionValue').textContent=selected.areaLabel||areaFor(selected).label;$('#regionValue').textContent=storeLabel(selected);$('#deliveryValue').textContent=selected.deliveryDays.join(', ');
-  renderItems();
+  $('#rateDetail').textContent='Checking Publix availability…';renderItems();await checkAvailability(selected);renderItems();
 }
 function renderItems(){
   if(!selected){$('#itemRows').innerHTML='<tr><td colspan="10" class="empty">Select a store to begin.</td></tr>';return}
   const acts=read();let items=data.products.map(p=>({...p,qty:null,...availability(selected.id,p.productId)}));
-  const checked=items.filter(x=>x.status!=='NOT_CHECKED'),o=checked.filter(x=>x.status==='OOS').length,i=checked.filter(x=>x.status==='IN_STOCK').length,rate=checked.length?i/checked.length*100:0;
+  const checked=items.filter(x=>['OOS','IN_STOCK'].includes(x.status)),o=checked.filter(x=>x.status==='OOS').length,i=checked.filter(x=>x.status==='IN_STOCK').length,rate=checked.length?i/checked.length*100:0;
   $('#oosKpi').textContent=checked.length?o:'—';$('#inKpi').textContent=checked.length?i:'—';$('#rateKpi').textContent=checked.length?rate.toFixed(1)+'%':'—';$('#rateDetail').textContent=checked.length?`${i} / ${checked.length} confirmed available`:'Availability feed not connected';$('#trackedCount').textContent=`${items.length} tracked products`;
   if(view==='unavailable')items=items.filter(x=>x.status==='OOS');
   if(view==='cases')items=items.filter(x=>(acts[`${selected.id}|${x.productId}`]?.qty||0)>0);
