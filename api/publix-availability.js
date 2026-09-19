@@ -17,9 +17,14 @@ const PRODUCT_URLS={
   'RB-BO-S':'https://delivery.publix.com/store/publix/products/21091416-red-baron-brick-oven-crust-supreme-pizza-18-64-oz'
 };
 function parse(html){
+  const raw=html.replace(/&quot;/g,'"').replace(/&#34;/g,'"').replace(/\\u0022/g,'"');
+  if(/"availability"\s*:\s*"(?:OUT_OF_STOCK|UNAVAILABLE)"/i.test(raw)||/"available"\s*:\s*false/i.test(raw))return {status:'OOS',label:'OUT OF STOCK',confidence:'embedded'};
+  if(/"availability"\s*:\s*"(?:IN_STOCK|AVAILABLE)"/i.test(raw)||/"available"\s*:\s*true/i.test(raw))return {status:'IN_STOCK',label:'IN STOCK',confidence:'embedded'};
   const t=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ');
   if(/out of stock|item isn't available|item isn.t available|not available in/i.test(t))return {status:'OOS',label:'OUT OF STOCK'};
   if(/available in|many in stock|in stock|add to cart|add to order|add for delivery|add for pickup/i.test(t))return {status:'IN_STOCK',label:'IN STOCK'};
+  if(/currently unavailable|unavailable for delivery|unavailable for pickup|sold out/i.test(t))return {status:'OOS',label:'OUT OF STOCK'};
+  if(/delivery available|pickup available|buy now/i.test(t))return {status:'IN_STOCK',label:'IN STOCK'};
   return {status:'UNVERIFIED',label:'UNVERIFIED'};
 }
 module.exports=async(req,res)=>{
