@@ -22,21 +22,29 @@ const areaFor=s=>{const n=Number(s.asm);const a=AREA_MAP.find(x=>n>=x.min&&n<=x.
 const storeLabel=s=>s.asm?('Zone '+s.asm):s.region;
 function init(){
   data.stores.forEach(s=>{const a=areaFor(s);s.area=a.name;s.areaLabel=a.label;s.division=a.name;s.region='Zone '+s.asm});fillFilters();bindNav();fillStores();renderRegional();
-  ['divisionFilter','regionFilter','deliveryFilter'].forEach(id=>$('#'+id).onchange=()=>{fillStores();});
+  $('#divisionFilter').onchange=()=>{refreshZones();$('#regionFilter').value='all';fillStores();}; $('#regionFilter').onchange=fillStores; $('#deliveryFilter').onchange=fillStores;
   $('#storeFilter').onchange=()=>load($('#storeFilter').value);
   $('#exportBtn').onclick=exportStore;$('#refreshBtn').onclick=()=>selected&&load(selected.id);
 }
 function fillFilters(){
-  AREA_MAP.filter(a=>data.stores.some(s=>s.area===a.name)).forEach(a=>$('#divisionFilter').insertAdjacentHTML('beforeend',`<option value="${esc(a.name)}">${esc(a.label)}</option>`));
-  [...new Set(data.stores.map(s=>Number(s.asm)))].sort((a,b)=>a-b).forEach(x=>$('#regionFilter').insertAdjacentHTML('beforeend',`<option value="Zone ${x}">Zone ${x}</option>`));
-  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(x=>$('#deliveryFilter').insertAdjacentHTML('beforeend',`<option>${x}</option>`));
+  const areaSel=$('#divisionFilter'),zoneSel=$('#regionFilter'),daySel=$('#deliveryFilter');
+  areaSel.innerHTML='<option value="all">All areas</option>'+AREA_MAP.map(a=>`<option value="${esc(a.name)}">${esc(a.label)}</option>`).join('');
+  zoneSel.innerHTML='<option value="all">All zones</option>';
+  daySel.innerHTML='<option value="all">All delivery days</option>'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=>`<option>${x}</option>`).join('');
+  refreshZones();
+}
+function refreshZones(){
+  const area=$('#divisionFilter').value,zoneSel=$('#regionFilter'),current=zoneSel.value;
+  const zones=[...new Set(data.stores.filter(s=>area==='all'||s.area===area).map(s=>Number(s.asm)))].sort((a,b)=>a-b);
+  zoneSel.innerHTML='<option value="all">All zones</option>'+zones.map(x=>`<option value="Zone ${x}">Zone ${x}</option>`).join('');
+  if([...zoneSel.options].some(o=>o.value===current))zoneSel.value=current;
 }
 function filteredStores(){
   let a=[...data.stores],d=$('#divisionFilter').value,r=$('#regionFilter').value,day=$('#deliveryFilter').value;
   if(d!=='all')a=a.filter(s=>s.division===d);if(r!=='all')a=a.filter(s=>s.region===r);if(day!=='all')a=a.filter(s=>s.deliveryDays.includes(day));return a;
 }
 function fillStores(){
-  const a=filteredStores(),sel=$('#storeFilter');sel.innerHTML='<option value="">Select Publix store</option>'+a.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} — ${esc(s.city)}, ${esc(s.state)}</option>`).join('');
+  const a=filteredStores().sort((x,y)=>Number(x.id)-Number(y.id)),sel=$('#storeFilter');sel.innerHTML=`<option value="">Select Publix store (${a.length})</option>`+a.map(s=>`<option value="${esc(s.id)}">${esc(s.name)} — ${esc(s.city)}, ${esc(s.state)}</option>`).join('');
   if(selected&&a.some(s=>s.id===selected.id))sel.value=selected.id;
 }
 function bindNav(){
