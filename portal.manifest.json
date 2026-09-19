@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "retailer": "Publix",
+  "slug": "publix",
+  "portalContract": "retailer-summary-v1",
+  "framework": "static",
+  "isolation": {
+    "storeKeys": "Publix store numbers",
+    "productKeys": "retailer product identifiers",
+    "inventoryLogic": "Publix OOS/IN_STOCK semantics",
+    "dataSource": "Publix adapter"
+  },
+  "integration": {
+    "mode": "federated"
+  }
+}
