@@ -4,7 +4,9 @@ let selected=null,view='store';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const read=()=>{try{return JSON.parse(localStorage.getItem(actionsKey)||'{}')}catch{return{}}};
 const write=v=>localStorage.setItem(actionsKey,JSON.stringify(v));
-const inventory=(storeId,pid)=>{const seed=(String(storeId)+pid).split('').reduce((a,c)=>a+c.charCodeAt(0),0);return seed%7===0?0:(seed%5)+1};
+const inventory=()=>null;
+const availability=()=>({status:'NOT_CHECKED',label:'NOT CHECKED'});
+const storeLabel=s=>s.asm?('ASM '+s.asm):s.region;
 function init(){
   fillFilters();bindNav();fillStores();renderRegional();
   ['divisionFilter','regionFilter','deliveryFilter'].forEach(id=>$('#'+id).onchange=()=>{fillStores();});
@@ -34,25 +36,25 @@ function bindNav(){
 function load(id){
   selected=data.stores.find(s=>s.id===id);if(!selected)return;
   $('#storeName').textContent=`${selected.name} — ${selected.city}`;$('#storeAddress').textContent=selected.address;$('#storeId').textContent=`Store ID ${selected.id}`;
-  $('#divisionValue').textContent=selected.division;$('#regionValue').textContent=selected.region;$('#deliveryValue').textContent=selected.deliveryDays.join(', ');
+  $('#divisionValue').textContent=selected.state||selected.division;$('#regionValue').textContent=storeLabel(selected);$('#deliveryValue').textContent=selected.deliveryDays.join(', ');
   renderItems();
 }
 function renderItems(){
   if(!selected){$('#itemRows').innerHTML='<tr><td colspan="10" class="empty">Select a store to begin.</td></tr>';return}
-  const acts=read();let items=data.products.map(p=>({...p,qty:inventory(selected.id,p.productId)})).map(p=>({...p,status:p.qty===0?'OOS':'IN_STOCK'}));
-  const o=items.filter(x=>x.status==='OOS').length,i=items.length-o,rate=items.length?i/items.length*100:0;
-  $('#oosKpi').textContent=o;$('#inKpi').textContent=i;$('#rateKpi').textContent=rate.toFixed(1)+'%';$('#rateDetail').textContent=`${i} / ${items.length} confirmed available`;$('#trackedCount').textContent=`${items.length} tracked products`;
+  const acts=read();let items=data.products.map(p=>({...p,qty:null,...availability(selected.id,p.productId)}));
+  const checked=items.filter(x=>x.status!=='NOT_CHECKED'),o=checked.filter(x=>x.status==='OOS').length,i=checked.filter(x=>x.status==='IN_STOCK').length,rate=checked.length?i/checked.length*100:0;
+  $('#oosKpi').textContent=checked.length?o:'—';$('#inKpi').textContent=checked.length?i:'—';$('#rateKpi').textContent=checked.length?rate.toFixed(1)+'%':'—';$('#rateDetail').textContent=checked.length?`${i} / ${checked.length} confirmed available`:'Availability feed not connected';$('#trackedCount').textContent=`${items.length} tracked products`;
   if(view==='unavailable')items=items.filter(x=>x.status==='OOS');
   if(view==='cases')items=items.filter(x=>(acts[`${selected.id}|${x.productId}`]?.qty||0)>0);
   const totalCases=Object.entries(acts).filter(([k])=>k.startsWith(selected.id+'|')).reduce((s,[,v])=>s+(Number(v.qty)||0),0);
   $('#casesValue').textContent=`${totalCases} open`;$('#caseKpi').textContent=totalCases;
-  $('#itemRows').innerHTML=items.map((x,n)=>{const key=`${selected.id}|${x.productId}`,a=acts[key]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return `<tr data-key="${key}"><td>${n+1}</td><td>${esc(x.brand)}</td><td>${esc(x.name)}</td><td>${esc(x.category)}</td><td>${esc(x.productId)}</td><td>${x.qty}</td><td><span class="pill ${x.status==='OOS'?'oos':'stock'}">${x.status==='OOS'?'OOS':'IN STOCK'}</span></td><td><select class="order">${[0,1,2,3,4,5,6,7,8,9,10].map(v=>`<option ${q===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input class="price" type="number" step=".01" value="${p.toFixed(2)}"></td><td class="money">$${(q*p).toFixed(2)}</td></tr>`}).join('')||'<tr><td colspan="10" class="empty">No items match this view.</td></tr>';
+  $('#itemRows').innerHTML=items.map((x,n)=>{const key=`${selected.id}|${x.productId}`,a=acts[key]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return `<tr data-key="${key}"><td>${n+1}</td><td>${esc(x.brand)}</td><td>${esc(x.name)}</td><td>${esc(x.category)}</td><td>${esc(x.productId)}</td><td>${x.qty??'—'}</td><td><span class="pill ${x.status==='OOS'?'oos':x.status==='IN_STOCK'?'stock':''}">${x.label}</span></td><td><select class="order">${[0,1,2,3,4,5,6,7,8,9,10].map(v=>`<option ${q===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input class="price" type="number" step=".01" value="${p.toFixed(2)}"></td><td class="money">$${(q*p).toFixed(2)}</td></tr>`}).join('')||'<tr><td colspan="10" class="empty">No items match this view.</td></tr>';
   document.querySelectorAll('#itemRows tr[data-key]').forEach(row=>{const key=row.dataset.key,order=row.querySelector('.order'),price=row.querySelector('.price');const save=()=>{const all=read(),q=Number(order.value)||0,p=Number(price.value)||0;if(q)all[key]={qty:q,casePrice:p};else delete all[key];write(all);row.querySelector('.money').textContent='$'+(q*p).toFixed(2);renderKpiCases()};order.onchange=save;price.onchange=save});
 }
 function renderKpiCases(){if(!selected)return;const acts=read(),c=Object.entries(acts).filter(([k])=>k.startsWith(selected.id+'|')).reduce((s,[,v])=>s+(Number(v.qty)||0),0);$('#casesValue').textContent=`${c} open`;$('#caseKpi').textContent=c}
 function renderRegional(){
-  const regions=[...new Set(data.stores.map(s=>s.region))];$('#regionalGrid').innerHTML=regions.map(r=>{const stores=data.stores.filter(s=>s.region===r),items=stores.flatMap(s=>data.products.map(p=>inventory(s.id,p.productId))),ins=items.filter(q=>q>0).length,rate=items.length?ins/items.length*100:0;return `<article class="region-card"><h3>${esc(r)}</h3><div class="metric">${rate.toFixed(1)}%</div><small>${stores.length} stores • ${items.length-ins} OOS signals</small></article>`}).join('');
+  const regions=[...new Set(data.stores.map(s=>s.region))];$('#regionalGrid').innerHTML=regions.map(r=>{const stores=data.stores.filter(s=>s.region===r);return `<article class="region-card"><h3>${esc(r)}</h3><div class="metric">${stores.length}</div><small>stores • availability feed pending</small></article>`}).join('');
 }
-function exportStore(){if(!selected)return;const acts=read(),rows=[['Brand','Item','Category','Product ID','Status','Qty Ordered','Case Price','Added $'],...data.products.map(x=>{const qoh=inventory(selected.id,x.productId),a=acts[`${selected.id}|${x.productId}`]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return[x.brand,x.name,x.category,x.productId,qoh===0?'OOS':'IN_STOCK',q,p,(q*p).toFixed(2)]})];const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Publix-${selected.id}-Store-Action.csv`;a.click();URL.revokeObjectURL(a.href)}
+function exportStore(){if(!selected)return;const acts=read(),rows=[['Brand','Item','Category','Product ID','Status','Qty Ordered','Case Price','Added $'],...data.products.map(x=>{const qoh=null,a=acts[`${selected.id}|${x.productId}`]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return[x.brand,x.name,x.category,x.productId,'NOT_CHECKED',q,p,(q*p).toFixed(2)]})];const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Publix-${selected.id}-Store-Action.csv`;a.click();URL.revokeObjectURL(a.href)}
 document.addEventListener('DOMContentLoaded',init);
 })();
