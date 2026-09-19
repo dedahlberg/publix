@@ -6,14 +6,15 @@ const read=()=>{try{return JSON.parse(localStorage.getItem(actionsKey)||'{}')}ca
 const write=v=>localStorage.setItem(actionsKey,JSON.stringify(v));
 const inventory=()=>null;
 const availabilityCache={};
+const checkedAtCache={};
 const availability=(storeId,pid)=>availabilityCache[storeId]?.[pid]||{status:'NOT_CHECKED',label:'NOT CHECKED'};
 async function checkAvailability(store){
   const ids=data.products.map(p=>p.productId).join(',');
   try{
     const r=await fetch('/api/publix-availability?store='+encodeURIComponent(store.id)+'&postal='+encodeURIComponent(store.zip||'')+'&products='+encodeURIComponent(ids),{cache:'no-store'});
     if(!r.ok)throw new Error('availability');
-    const j=await r.json();availabilityCache[store.id]=j.results||{};
-  }catch(e){availabilityCache[store.id]=Object.fromEntries(data.products.map(p=>[p.productId,{status:'UNKNOWN',label:'CHECK FAILED'}]));}
+    const j=await r.json();availabilityCache[store.id]=j.results||{};checkedAtCache[store.id]=j.checkedAt||new Date().toISOString();
+  }catch(e){availabilityCache[store.id]=Object.fromEntries(data.products.map(p=>[p.productId,{status:'ERROR',label:'TECHNICAL ERROR'}]));}
 }
 const AREA_MAP=[
   {min:100,max:199,name:'Northeast',code:'100s'},
@@ -73,18 +74,18 @@ function renderItems(){
   if(!selected){$('#itemRows').innerHTML='<tr><td colspan="10" class="empty">Select a store to begin.</td></tr>';return}
   const acts=read();let items=data.products.map(p=>({...p,qty:null,...availability(selected.id,p.productId)}));
   const checked=items.filter(x=>['OOS','IN_STOCK'].includes(x.status)),o=checked.filter(x=>x.status==='OOS').length,i=checked.filter(x=>x.status==='IN_STOCK').length,rate=checked.length?i/checked.length*100:0;
-  $('#oosKpi').textContent=checked.length?o:'—';$('#inKpi').textContent=checked.length?i:'—';$('#rateKpi').textContent=checked.length?rate.toFixed(1)+'%':'—';$('#rateDetail').textContent=checked.length?`${i} / ${checked.length} confirmed available`:'Availability feed not connected';$('#trackedCount').textContent=`${items.length} tracked products`;
+  $('#oosKpi').textContent=checked.length?o:'—';$('#inKpi').textContent=checked.length?i:'—';$('#rateKpi').textContent=checked.length?rate.toFixed(1)+'%':'—';$('#rateDetail').textContent=checked.length?`${i} / ${checked.length} confirmed available • ${items.filter(x=>!['OOS','IN_STOCK'].includes(x.status)).length} unverified`:'No confirmed availability yet';$('#trackedCount').textContent=`${items.length} tracked products`;
   if(view==='unavailable')items=items.filter(x=>x.status==='OOS');
   if(view==='cases')items=items.filter(x=>(acts[`${selected.id}|${x.productId}`]?.qty||0)>0);
   const totalCases=Object.entries(acts).filter(([k])=>k.startsWith(selected.id+'|')).reduce((s,[,v])=>s+(Number(v.qty)||0),0);
   $('#casesValue').textContent=`${totalCases} open`;$('#caseKpi').textContent=totalCases;
-  $('#itemRows').innerHTML=items.map((x,n)=>{const key=`${selected.id}|${x.productId}`,a=acts[key]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return `<tr data-key="${key}"><td>${n+1}</td><td>${esc(x.brand)}</td><td>${esc(x.name)}</td><td>${esc(x.category)}</td><td>${esc(x.productId)}</td><td>${x.qty??'—'}</td><td><span class="pill ${x.status==='OOS'?'oos':x.status==='IN_STOCK'?'stock':''}">${x.label}</span></td><td><select class="order">${[0,1,2,3,4,5,6,7,8,9,10].map(v=>`<option ${q===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input class="price" type="number" step=".01" value="${p.toFixed(2)}"></td><td class="money">$${(q*p).toFixed(2)}</td></tr>`}).join('')||'<tr><td colspan="10" class="empty">No items match this view.</td></tr>';
+  $('#itemRows').innerHTML=items.map((x,n)=>{const key=`${selected.id}|${x.productId}`,a=acts[key]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return `<tr data-key="${key}"><td>${n+1}</td><td>${esc(x.brand)}</td><td>${esc(x.name)}</td><td>${esc(x.category)}</td><td>${esc(x.productId)}</td><td>${x.qty??'—'}</td><td><span class="pill ${x.status==='OOS'?'oos':x.status==='IN_STOCK'?'stock':x.status==='UNVERIFIED'?'unverified':x.status==='ERROR'?'error':''}">${x.label}</span></td><td><select class="order">${[0,1,2,3,4,5,6,7,8,9,10].map(v=>`<option ${q===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input class="price" type="number" step=".01" value="${p.toFixed(2)}"></td><td class="money">$${(q*p).toFixed(2)}</td></tr>`}).join('')||'<tr><td colspan="10" class="empty">No items match this view.</td></tr>';
   document.querySelectorAll('#itemRows tr[data-key]').forEach(row=>{const key=row.dataset.key,order=row.querySelector('.order'),price=row.querySelector('.price');const save=()=>{const all=read(),q=Number(order.value)||0,p=Number(price.value)||0;if(q)all[key]={qty:q,casePrice:p};else delete all[key];write(all);row.querySelector('.money').textContent='$'+(q*p).toFixed(2);renderKpiCases()};order.onchange=save;price.onchange=save});
 }
 function renderKpiCases(){if(!selected)return;const acts=read(),c=Object.entries(acts).filter(([k])=>k.startsWith(selected.id+'|')).reduce((s,[,v])=>s+(Number(v.qty)||0),0);$('#casesValue').textContent=`${c} open`;$('#caseKpi').textContent=c}
 function renderRegional(){
   const areas=AREA_MAP.filter(a=>data.stores.some(s=>s.area===a.name));$('#regionalGrid').innerHTML=areas.map(a=>{const stores=data.stores.filter(s=>s.area===a.name),zones=[...new Set(stores.map(s=>s.asm))].sort((x,y)=>Number(x)-Number(y));return `<article class="region-card"><h3>${esc(a.label)}</h3><div class="metric">${stores.length}</div><small>${zones.length} zones • ${esc(zones.map(z=>'Zone '+z).join(', '))}</small></article>`}).join('');
 }
-function exportStore(){if(!selected)return;const acts=read(),rows=[['Brand','Item','Category','Product ID','Status','Qty Ordered','Case Price','Added $'],...data.products.map(x=>{const qoh=null,a=acts[`${selected.id}|${x.productId}`]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;return[x.brand,x.name,x.category,x.productId,'NOT_CHECKED',q,p,(q*p).toFixed(2)]})];const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Publix-${selected.id}-Store-Action.csv`;a.click();URL.revokeObjectURL(a.href)}
+function exportStore(){if(!selected)return;const acts=read(),rows=[['Brand','Item','Category','Product ID','Status','Qty Ordered','Case Price','Added $'],...data.products.map(x=>{const qoh=null,a=acts[`${selected.id}|${x.productId}`]||{},q=Number(a.qty)||0,p=Number(a.casePrice??x.casePrice)||0;const av=availability(selected.id,x.productId);return[x.brand,x.name,x.category,x.productId,av.label||av.status,q,p,(q*p).toFixed(2)]})];const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Publix-${selected.id}-Store-Action.csv`;a.click();URL.revokeObjectURL(a.href)}
 document.addEventListener('DOMContentLoaded',init);
 })();
