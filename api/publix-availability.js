@@ -27,13 +27,23 @@ function parse(html){
   if(/delivery available|pickup available|buy now/i.test(t))return {status:'IN_STOCK',label:'IN STOCK'};
   return {status:'UNVERIFIED',label:'UNVERIFIED'};
 }
+async function getStore(store){
+  if(!store)return null;
+  try{
+    const r=await fetch('https://services.publix.com/storelocator/api/v1/stores/'+encodeURIComponent(store),{headers:{'user-agent':UA,'accept':'application/json'}});
+    if(!r.ok)return null;
+    const j=await r.json();
+    return {storeNumber:String(j.storeNumber||store),name:j.name||j.shortName||null,zip:j.address?.zip||null,city:j.address?.city||null,state:j.address?.state||null};
+  }catch{return null}
+}
 module.exports=async(req,res)=>{
   res.setHeader('Cache-Control','s-maxage=300, stale-while-revalidate=600');
   const ids=String(req.query.products||'').split(',').filter(Boolean).slice(0,50);
+  const storeMeta=await getStore(req.query.store);
   const results={};
   await Promise.all(ids.map(async id=>{
     const base=PRODUCT_URLS[id];
-    const postal=String(req.query.postal||'').replace(/\D/g,'').slice(0,5);
+    const postal=String(storeMeta?.zip||req.query.postal||'').replace(/\D/g,'').slice(0,5);
     const url=base&&postal?base.replace('/store/publix/products/','/landing?postal_code='+postal+'&product_id=').replace(/-([a-z0-9-]+)$/i,'')+'&retailer_id=57':base;
     if(!base){results[id]={status:'NOT_MAPPED',label:'NOT MAPPED'};return}
     try{
@@ -42,5 +52,5 @@ module.exports=async(req,res)=>{
       results[id]={...parse(await r.text()),source:'Publix Delivery'};
     }catch(e){results[id]={status:'ERROR',label:'TECHNICAL ERROR'}}
   }));
-  res.status(200).json({checkedAt:new Date().toISOString(),store:req.query.store||null,results});
+  res.status(200).json({checkedAt:new Date().toISOString(),store:req.query.store||null,storeMeta,results});
 };
