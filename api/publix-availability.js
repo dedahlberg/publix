@@ -14,7 +14,14 @@ const PRODUCT_URLS={
   'RB-FL-UP':'https://delivery.publix.com/store/publix/products/29221537-red-baron-pizza-hand-tossed-ultimate-pepperoni-fully-loaded-28-75-oz',
   'RB-DD-C':'https://delivery.publix.com/store/publix/products/20571842-red-baron-deep-dish-singles-four-cheese-pizza-11-2-oz',
   'RB-DD-S':'https://delivery.publix.com/store/publix/products/16927648-red-baron-deep-dish-singles-supreme-pizza-11-5-oz',
-  'RB-BO-S':'https://delivery.publix.com/store/publix/products/21091416-red-baron-brick-oven-crust-supreme-pizza-18-64-oz'
+  'RB-BO-S':'https://delivery.publix.com/store/publix/products/21091416-red-baron-brick-oven-crust-supreme-pizza-18-64-oz',
+  'FR-BO-P':'https://delivery.publix.com/store/publix/products/119597-freschetta-brick-oven-crust-pepperoni-pizza-22-7-oz',
+  'FR-BO-5C':'https://delivery.publix.com/store/publix/products/119595-freschetta-brick-oven-crust-five-cheese-pizza-20-28-oz',
+  'FR-NR-P':'https://delivery.publix.com/store/publix/products/42482-freschetta-naturally-rising-crust-pepperoni-pizza-27-35-oz',
+  'FR-NR-4C':'https://delivery.publix.com/store/publix/products/8402-freschetta-naturally-rising-crust-four-cheese-pizza-26-11-oz',
+  'FR-GF-4C':'https://delivery.publix.com/store/publix/products/166787-freschetta-gluten-free-gluten-free-four-cheese-pizza-17-5-oz',
+  'PG-ER-CHK':'https://delivery.publix.com/store/publix/products/20129617-pagoda-chicken-egg-rolls-22-0-oz',
+  'PG-ER-PRK':'https://delivery.publix.com/store/publix/products/20129601-pagoda-pork-egg-rolls-22-0-oz'
 };
 function parse(html){
   const raw=html.replace(/&quot;/g,'"').replace(/&#34;/g,'"').replace(/\\u0022/g,'"');
